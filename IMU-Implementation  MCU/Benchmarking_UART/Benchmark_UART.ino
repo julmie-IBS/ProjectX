@@ -3,14 +3,12 @@
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
 #include <Wire.h>
-  float i = 0;
-  float ii = 0;
-  float iii = 0;
+
 
 Adafruit_MPU6050 mpu;
 
 void setup(void) {
-  Serial.begin(500000);
+  Serial.begin(1000000);
   while (!Serial)
     delay(10); // will pause Zero, Leonardo, etc until serial console opens
 
@@ -88,27 +86,29 @@ void setup(void) {
   delay(100);
 }
 
-void loop() {
 
   /* Get new sensor events with the readings */
-  sensors_event_t a, g, temp;
-  mpu.getEvent(&a, &g, &temp);
+  
+
+void loop() {
+  
+  // send data only when you receive data:
+  if (Serial.available() > 0) {
+    // read the incoming byte:
+    int incomingByte = Serial.read();
+    sensors_event_t a, g, temp;
+    mpu.getEvent(&a, &g, &temp);
+    //delay(10);
+
+    // say what you got:
+    Serial.print("a");
+   
+  }
 
 
-  /* Print out the values */
-
-  Serial.print(a.acceleration.x);
-  Serial.print(",");
-  Serial.print(a.acceleration.y);
-  Serial.print(",");
-  Serial.print(a.acceleration.z);
-  Serial.print(",");
-  ////////////////////////////////#####################//////////////////////////////////
-  Serial.print(g.gyro.x);
-  Serial.print(",");
-  Serial.print(g.gyro.y);
-  Serial.print(",");
-  Serial.println(g.gyro.z);
+    
+  
+  
  
 
   //Serial.print("Temperature: ");
