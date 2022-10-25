@@ -1,72 +1,68 @@
 import numpy as np
 import math
 
+#
+### Kalman filtering of IMU data
+### Reference
+### http://tom.pycke.be/mav/71/kalman-filtering-of-imu-data/
+#
+
 ##### INIT #####
 # Generic
-dt = 0.01                           # 10ms timesteps
+dt = 0.02                           # 20ms timesteps
 CF_GainGyro = 0.95                  # complementary filter gain of gyroscope
 CF_GainAcc = 1 - CF_GainGyro        # complementary filter gain of gyroscope
 A_GAIN = 0.0573                     # [deg/LSB]
 G_GAIN = 0.070                      # [deg/s/LSB]
 
-# Kalman Filter
-Q_angle  =  0.01
-Q_gyro   =  0.0003
-R_angle  =  0.01
-x_bias = 0
-y_bias = 0
-XP_00 = 0
-XP_01 = 0
-XP_10 = 0
-XP_11 = 0
-YP_00 = 0
-YP_01 = 0
-YP_10 = 0
-YP_11 = 0
-CF_angle_x = 0.0
-CF_angle_y = 0.0
-CF_angle_z = 0.0
-KF_angle_x = 0.0
-KF_angle_y = 0.0
-KF_angle_z = 0.0
-gyro_angle_x = 0.0
-gyro_angle_y = 0.0
-gyro_angle_z = 0.0
-acc_angle_x = 0.0
-acc_angle_y = 0.0
+# IMU Input Section
+Gyr_data_raw = np.array([0,0,0])
+Gyr_bias = np.array([0,0,0])
+Acc_data_raw = np.array([0,0,0])
+u_k = Gyr_data_raw   # initial state vector
 
-# Acc und Gyro Input section
-gyr_raw = [0,0,0]
-acc_raw = [0,0,0]
+# State space model
+x_k = np.concatenate(([0,0,0], Gyr_bias))
+A = np.array([[1,0,0,-dt,0,0],[0,1,0,0,-dt,0],[0,0,1,0,0,-dt],[0,0,0,1,0,0],[0,0,0,0,1,0],[0,0,0,0,0,1]])
+B = np.array([[dt,0,0],[0,dt,0],[0,0,dt],[0,0,0],[0,0,0],[0,0,0]])   # Input matrix
+C = np.array([[1,0,0,0,0,0],[0,1,0,0,0,0],[0,0,1,0,0,0]])
+# Prediction
+x_k1 = A @ x_k + B @ u_k
 
-# ---------------------------------
-# Init
-gyr_cal_angle_x = 0.0
-gyr_cal_angle_y = 0.0
-gyr_cal_angle_z = 0.0
-
-# Convert raw gyro data to angular frequency
-gyr_x = gyr_raw[0] * G_GAIN
-gyr_y = gyr_raw[1] * G_GAIN
-gyr_z = gyr_raw[2] * G_GAIN
-
-# Calculate gyroscope angles
-gyr_angle_x = gyr_cal_angle_x + gyr_x * dt
-gyr_angle_y = gyr_cal_angle_y + gyr_y * dt
-gyr_angle_z = gyr_cal_angle_z + gyr_z * dt
-
-acc_angle_x = (math.atan2(acc_raw(1), acc_raw(2)) + np.pi) * np.pi/180
-acc_angle_y = (math.atan2(acc_raw(2), acc_raw(0)) + np.pi) * np.pi/180
-acc_angle_z = (math.atan2(acc_raw(0), acc_raw(1)) + np.pi) * np.pi/180
+# Convert accelerometer output to angle
+acc_angle_x = (math.atan2(Acc_data_raw(1), Acc_data_raw(2)) + np.pi) * np.pi/180
+acc_angle_y = (math.atan2(Acc_data_raw(2), Acc_data_raw(0)) + np.pi) * np.pi/180
+acc_angle_z = (math.atan2(Acc_data_raw(0), Acc_data_raw(1)) + np.pi) * np.pi/180
 
 acc_angle_x = acc_angle_x - 180.0
 if acc_angle_y > 90.0:
     acc_angle_y = acc_angle_y - 270.0
 else:
     acc_angle_y = acc_angle_y + 90.0
-    
+y = [acc_angle_x,acc_angle_y,acc_angle_z]
+
+# Innovation (Difference between the second value and the value predicted by our model)
+Inn = y - np.matmul(C,x_k1)
+
+# Covariance
+s = C @ P @ C.T + Sz
+
+# Kalman Gain
+K = A @ P @ C.T @ np.linalg.inv(s)
+
+# Correction (Correct state prediction)
+x_next = x_k1 + K @ Inn
+
+# Covariance calculation
+P = A @ P @ A.T - K @  C @ P @ A.T + Sw
+
+
+
+
+
+
+
+
 
 # Apply Complementary filter
-CF_angle_x = CF_GainGyro * (CF_angle_x + gyr_x * dt) + CF_GainAcc * acc_angle_x;
-CF_angle_y = CF_GainGyro * (CF_angle_y + gyr_y * dt) + CF_GainAcc * acc_angle_y;
-CF_angle_x = CF_GainGyro * (CF_angle_z + gyr_z * dt) + CF_GainAcc * acc_angle_z;
+CF_angle = CF_GainGyro * (CF_angle_x + [x * dt for x in gyr] * dt) + [x * CF_GainAcc for x in acc_angle]
